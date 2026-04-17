@@ -1,66 +1,18 @@
-```html
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Zombie Mobile</title>
-
-<style>
-body { margin:0; overflow:hidden; background:black; }
-
-#ui {
-  position:fixed;
-  top:10px;
-  left:10px;
-  color:white;
-}
-
-#message {
-  position:fixed;
-  top:40%;
-  width:100%;
-  text-align:center;
-  color:white;
-  font-size:20px;
-}
-
-#joystick {
-  position:fixed;
-  bottom:40px;
-  left:40px;
-  width:100px;
-  height:100px;
-  background:rgba(255,255,255,0.1);
-  border-radius:50%;
-}
-
-#stick {
-  width:40px;
-  height:40px;
-  background:white;
-  border-radius:50%;
-  position:absolute;
-  left:30px;
-  top:30px;
-}
-
-#restart {
-  position:fixed;
-  top:55%;
-  left:50%;
-  transform:translateX(-50%);
-  display:none;
-}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zombie Mobile</title>
+  <link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
 
 <div id="ui">
-HP: <span id="hp">100</span><br>
-Gun: <span id="gun">1</span><br>
-Kill: <span id="kill">0</span>
+  HP: <span id="hp">100</span><br>
+  Gun: <span id="gun">1</span><br>
+  Kill: <span id="kill">0</span>
 </div>
 
 <div id="message"></div>
@@ -70,142 +22,10 @@ Kill: <span id="kill">0</span>
 
 <canvas id="game"></canvas>
 
-<script>
-var canvas = document.getElementById("game");
-var ctx = canvas.getContext("2d");
+<script src="js/utils.js"></script>
+<script src="js/input.js"></script>
+<script src="js/game.js"></script>
+<script src="js/main.js"></script>
 
-canvas.width = innerWidth;
-canvas.height = innerHeight;
-
-var player, zombies, bullets, items, boss;
-var killCount, gameOver;
-
-function init(){
-  player = { x:canvas.width/2, y:canvas.height/2, hp:100, gun:1 };
-  zombies = [];
-  bullets = [];
-  items = [];
-  boss = null;
-  killCount = 0;
-  gameOver = false;
-
-  document.getElementById("message").innerText="";
-  document.getElementById("restart").style.display="none";
-}
-init();
-
-// ===== JOYSTICK =====
-var joy = {x:0,y:0};
-var stick = document.getElementById("stick");
-var joyDiv = document.getElementById("joystick");
-
-joyDiv.ontouchmove = function(e){
-  var t = e.touches[0];
-  var rect = joyDiv.getBoundingClientRect();
-
-  var x = t.clientX - rect.left - 50;
-  var y = t.clientY - rect.top - 50;
-
-  var dist = Math.sqrt(x*x+y*y);
-  if(dist>40){ x*=40/dist; y*=40/dist; }
-
-  joy.x = x/40;
-  joy.y = y/40;
-
-  stick.style.left = (x+30)+"px";
-  stick.style.top = (y+30)+"px";
-};
-
-joyDiv.ontouchend = function(){
-  joy.x=0; joy.y=0;
-  stick.style.left="30px";
-  stick.style.top="30px";
-};
-
-// ===== SPAWN =====
-setInterval(function(){
-  if(boss||gameOver) return;
-
-  zombies.push({
-    x:Math.random()*canvas.width,
-    y:-20,
-    hp:30
-  });
-},800);
-
-// ===== AUTO SHOOT =====
-setInterval(function(){
-  if(gameOver) return;
-
-  var target=null, min=99999;
-
-  zombies.forEach(function(z){
-    var d=Math.hypot(z.x-player.x,z.y-player.y);
-    if(d<min){min=d; target=z;}
-  });
-
-  if(boss) target=boss;
-
-  if(target){
-    var angle=Math.atan2(target.y-player.y,target.x-player.x);
-    bullets.push({
-      x:player.x,
-      y:player.y,
-      vx:Math.cos(angle)*6,
-      vy:Math.sin(angle)*6
-    });
-  }
-},400);
-
-// ===== UPDATE =====
-function update(){
-  if(gameOver) return;
-
-  player.x += joy.x*4;
-  player.y += joy.y*4;
-
-  bullets.forEach(function(b){
-    b.x+=b.vx; b.y+=b.vy;
-  });
-
-  zombies.forEach(function(z){
-    var dx=player.x-z.x;
-    var dy=player.y-z.y;
-    var d=Math.hypot(dx,dy);
-
-    z.x+=dx/d;
-    z.y+=dy/d;
-
-    if(d<20) player.hp-=0.3;
-  });
-
-  if(boss){
-    var dx=player.x-boss.x;
-    var dy=player.y-boss.y;
-    var d=Math.hypot(dx,dy);
-
-    boss.x+=dx/d;
-    boss.y+=dy/d;
-
-    if(d<30) player.hp-=0.6;
-  }
-
-  for(var bi=bullets.length-1; bi>=0; bi--){
-    var b=bullets[bi];
-
-    for(var zi=zombies.length-1; zi>=0; zi--){
-      var z=zombies[zi];
-      if(Math.hypot(b.x-z.x,b.y-z.y)<15){
-        z.hp-=10;
-        bullets.splice(bi,1);
-        break;
-      }
-    }
-
-    if(boss && Math.hypot(b.x-boss.x,b.y-boss.y)<25){
-      boss.hp-=10;
-      bullets.splice(bi,1);
-    }
-  }
-
-
+</body>
+</html>
