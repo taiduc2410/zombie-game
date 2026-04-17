@@ -3,49 +3,28 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Zombie Mobile</title>
+<title>Zombie Shooter</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="apple-touch-icon" href="favicon.png">
+
+<link rel="icon" href="favicon.png">
+
 <style>
-  body {
-    margin: 0;
-    overflow: hidden;
-    background: #020617;
-    touch-action: none;
-  }
-
-  canvas { display: block; }
-
-  #ui {
-    position: fixed;
-    top: 10px;
-    left: 10px;
-    color: white;
-    background: rgba(0,0,0,0.4);
-    padding: 10px;
-    border-radius: 10px;
-    font-size: 14px;
-  }
-
-  #joystick {
-    position: fixed;
-    bottom: 40px;
-    left: 40px;
-    width: 100px;
-    height: 100px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.1);
-  }
-
-  #stick {
-    width: 40px;
-    height: 40px;
-    background: white;
-    border-radius: 50%;
-    position: absolute;
-    left: 30px;
-    top: 30px;
-  }
+body {
+  margin: 0;
+  overflow: hidden;
+  background: #020617;
+  font-family: sans-serif;
+}
+#ui {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  color: white;
+  background: rgba(0,0,0,0.4);
+  padding: 10px;
+  border-radius: 10px;
+}
+canvas { display: block; }
 </style>
 </head>
 
@@ -53,11 +32,8 @@
 
 <div id="ui">
 HP: <span id="hp">100</span><br>
-Gun: <span id="gun">1</span>
-</div>
-
-<div id="joystick">
-  <div id="stick"></div>
+Gun: <span id="gun">1</span><br>
+Score: <span id="score">0</span>
 </div>
 
 <canvas id="game"></canvas>
@@ -74,52 +50,29 @@ let player = {
   x: canvas.width/2,
   y: canvas.height/2,
   hp: 100,
-  gun: 1
+  gun: 1,
+  lastShot: 0
 };
 
-// ===== JOYSTICK =====
-let joy = { x: 0, y: 0 };
-let active = false;
+// ===== INPUT =====
+let mouse = { x: 0, y: 0, down: false };
 
-const joystick = document.getElementById("joystick");
-const stick = document.getElementById("stick");
-
-joystick.addEventListener("touchstart", e => {
-  active = true;
+canvas.addEventListener("mousemove", e=>{
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
 });
+canvas.addEventListener("mousedown", ()=> mouse.down = true);
+canvas.addEventListener("mouseup", ()=> mouse.down = false);
 
-joystick.addEventListener("touchmove", e => {
-  let t = e.touches[0];
-  let rect = joystick.getBoundingClientRect();
-
-  let x = t.clientX - rect.left - 50;
-  let y = t.clientY - rect.top - 50;
-
-  let dist = Math.hypot(x, y);
-  if (dist > 40) {
-    x *= 40/dist;
-    y *= 40/dist;
-  }
-
-  joy.x = x / 40;
-  joy.y = y / 40;
-
-  stick.style.left = (x + 50 - 20) + "px";
-  stick.style.top = (y + 50 - 20) + "px";
-});
-
-joystick.addEventListener("touchend", () => {
-  active = false;
-  joy.x = joy.y = 0;
-  stick.style.left = "30px";
-  stick.style.top = "30px";
-});
-
-// ===== GAME =====
+// ===== ENTITIES =====
 let bullets = [];
 let zombies = [];
+let items = [];
 
-function spawnZombie() {
+let score = 0;
+
+// ===== SPAWN =====
+function spawnZombie(){
   zombies.push({
     x: Math.random()*canvas.width,
     y: -20,
@@ -128,80 +81,150 @@ function spawnZombie() {
 }
 setInterval(spawnZombie, 1000);
 
-// AUTO SHOOT
-function shoot() {
-  if (zombies.length === 0) return;
+// ===== SHOOT =====
+function shoot(){
+  let now = Date.now();
+  let delay = 400 - player.gun * 40;
 
-  let target = zombies[0];
-  let angle = Math.atan2(target.y - player.y, target.x - player.x);
+  if(now - player.lastShot < delay) return;
+
+  player.lastShot = now;
+
+  let angle = Math.atan2(mouse.y-player.y, mouse.x-player.x);
 
   bullets.push({
     x: player.x,
     y: player.y,
-    vx: Math.cos(angle)*6,
-    vy: Math.sin(angle)*6
+    vx: Math.cos(angle)*8,
+    vy: Math.sin(angle)*8,
+    dmg: 10 + player.gun*5
   });
 }
-setInterval(shoot, 400);
 
-// UPDATE
-function update() {
-  player.x += joy.x * 4;
-  player.y += joy.y * 4;
+// ===== UPDATE =====
+function update(){
 
-  bullets.forEach(b => {
+  if(mouse.down) shoot();
+
+  // bullets
+  bullets.forEach(b=>{
     b.x += b.vx;
     b.y += b.vy;
   });
 
-  zombies.forEach(z => {
+  // zombies
+  zombies.forEach(z=>{
     let dx = player.x - z.x;
     let dy = player.y - z.y;
     let d = Math.hypot(dx,dy);
 
-    z.x += dx/d;
-    z.y += dy/d;
+    z.x += dx/d * 1.2;
+    z.y += dy/d * 1.2;
 
-    if (d < 20) player.hp -= 0.2;
+    if(d < 20) player.hp -= 0.2;
   });
 
-  bullets.forEach((b,bi)=>{
-    zombies.forEach((z,zi)=>{
-      if (Math.hypot(b.x-z.x,b.y-z.y)<15){
-        z.hp -= 10;
+  // bullet hit
+  for(let bi = bullets.length-1; bi>=0; bi--){
+    let b = bullets[bi];
+
+    for(let zi = zombies.length-1; zi>=0; zi--){
+      let z = zombies[zi];
+      let d = Math.hypot(b.x-z.x, b.y-z.y);
+
+      if(d < 15){
+        z.hp -= b.dmg;
         bullets.splice(bi,1);
+        break;
       }
-    });
-  });
+    }
+  }
 
-  zombies.forEach((z,i)=>{
-    if(z.hp<=0) zombies.splice(i,1);
-  });
+  // ===== ZOMBIE DEATH (FIXED) =====
+  for(let i = zombies.length-1; i>=0; i--){
+    let z = zombies[i];
 
+    if(z.hp <= 0){
+
+      // DROP ITEM
+      if(Math.random() < 0.5){
+        items.push({
+          x: z.x,
+          y: z.y,
+          type: Math.random() < 0.5 ? "gun" : "heal",
+          spawnTime: Date.now()
+        });
+      }
+
+      zombies.splice(i,1);
+      score++;
+    }
+  }
+
+  // ===== PICKUP =====
+  for(let i = items.length-1; i>=0; i--){
+    let it = items[i];
+
+    let d = Math.hypot(player.x-it.x, player.y-it.y);
+
+    // delay 300ms tránh auto ăn
+    if(d < 20 && Date.now() - it.spawnTime > 300){
+
+      if(it.type === "gun"){
+        player.gun++;
+      }
+      else if(it.type === "heal"){
+        player.hp = Math.min(100, player.hp + 20);
+      }
+
+      items.splice(i,1);
+    }
+  }
+
+  // UI
   document.getElementById("hp").innerText = Math.floor(player.hp);
+  document.getElementById("gun").innerText = player.gun;
+  document.getElementById("score").innerText = score;
 }
 
-// DRAW
-function draw() {
-  ctx.fillStyle="#020617";
+// ===== DRAW =====
+function draw(){
+  ctx.fillStyle = "#020617";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  ctx.fillStyle="green";
+  // player
+  ctx.fillStyle = "#22c55e";
   ctx.beginPath();
   ctx.arc(player.x,player.y,10,0,Math.PI*2);
   ctx.fill();
 
-  ctx.fillStyle="yellow";
+  // bullets
+  ctx.fillStyle = "#facc15";
   bullets.forEach(b=>{
     ctx.beginPath();
     ctx.arc(b.x,b.y,3,0,Math.PI*2);
     ctx.fill();
   });
 
-  ctx.fillStyle="red";
+  // zombies
+  ctx.fillStyle = "#ef4444";
   zombies.forEach(z=>{
     ctx.beginPath();
     ctx.arc(z.x,z.y,12,0,Math.PI*2);
+    ctx.fill();
+  });
+
+  // ===== ITEMS =====
+  items.forEach(it=>{
+    ctx.beginPath();
+    ctx.arc(it.x,it.y,6,0,Math.PI*2);
+
+    if(it.type === "gun"){
+      ctx.fillStyle = "#38bdf8"; // xanh
+    }else{
+      ctx.fillStyle = "#22c55e"; // heal
+    }
+
     ctx.fill();
   });
 }
