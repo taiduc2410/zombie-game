@@ -1,1 +1,280 @@
+```html
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Zombie Game</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<style>
+body {
+  margin: 0;
+  overflow: hidden;
+  background: black;
+  font-family: Arial;
+}
+
+#ui {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  color: white;
+}
+
+#message {
+  position: fixed;
+  top: 40%;
+  width: 100%;
+  text-align: center;
+  color: white;
+  font-size: 24px;
+}
+
+#restart {
+  position: fixed;
+  top: 55%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+}
+</style>
+</head>
+
+<body>
+
+<div id="ui">
+HP: <span id="hp">100</span><br>
+Gun: <span id="gun">1</span><br>
+Kill: <span id="kill">0</span>
+</div>
+
+<div id="message"></div>
+<button id="restart">Choi lai</button>
+
+<canvas id="game"></canvas>
+
+<script>
+var canvas = document.getElementById("game");
+var ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+var player, bullets, zombies, items, boss;
+var killCount, gameOver;
+
+function init() {
+  player = { x: canvas.width/2, y: canvas.height/2, hp: 100, gun: 1, lastShot: 0 };
+  bullets = [];
+  zombies = [];
+  items = [];
+  boss = null;
+  killCount = 0;
+  gameOver = false;
+
+  document.getElementById("message").innerText = "";
+  document.getElementById("restart").style.display = "none";
+}
+
+init();
+
+var mouse = { x:0, y:0, down:false };
+
+canvas.onmousemove = function(e){
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
+};
+
+canvas.onmousedown = function(){ mouse.down = true; };
+canvas.onmouseup = function(){ mouse.down = false; };
+
+function spawnZombie(){
+  if(boss || gameOver) return;
+
+  zombies.push({
+    x: Math.random()*canvas.width,
+    y: -20,
+    hp: 30
+  });
+}
+setInterval(spawnZombie, 800);
+
+function shoot(){
+  var now = Date.now();
+  if(now - player.lastShot < 400) return;
+
+  player.lastShot = now;
+
+  var angle = Math.atan2(mouse.y-player.y, mouse.x-player.x);
+
+  bullets.push({
+    x: player.x,
+    y: player.y,
+    vx: Math.cos(angle)*6,
+    vy: Math.sin(angle)*6
+  });
+}
+
+function update(){
+
+  if(gameOver) return;
+
+  if(mouse.down) shoot();
+
+  bullets.forEach(function(b){
+    b.x += b.vx;
+    b.y += b.vy;
+  });
+
+  zombies.forEach(function(z){
+    var dx = player.x - z.x;
+    var dy = player.y - z.y;
+    var d = Math.sqrt(dx*dx + dy*dy);
+
+    z.x += dx/d;
+    z.y += dy/d;
+
+    if(d < 20) player.hp -= 0.3;
+  });
+
+  if(boss){
+    var dx = player.x - boss.x;
+    var dy = player.y - boss.y;
+    var d = Math.sqrt(dx*dx + dy*dy);
+
+    boss.x += dx/d;
+    boss.y += dy/d;
+
+    if(d < 30) player.hp -= 0.6;
+  }
+
+  for(var bi = bullets.length-1; bi>=0; bi--){
+    var b = bullets[bi];
+
+    for(var zi = zombies.length-1; zi>=0; zi--){
+      var z = zombies[zi];
+      var d = Math.sqrt((b.x-z.x)*(b.x-z.x)+(b.y-z.y)*(b.y-z.y));
+
+      if(d < 15){
+        z.hp -= 10;
+        bullets.splice(bi,1);
+        break;
+      }
+    }
+
+    if(boss){
+      var d2 = Math.sqrt((b.x-boss.x)*(b.x-boss.x)+(b.y-boss.y)*(b.y-boss.y));
+      if(d2 < 25){
+        boss.hp -= 10;
+        bullets.splice(bi,1);
+      }
+    }
+  }
+
+  for(var i = zombies.length-1; i>=0; i--){
+    var z = zombies[i];
+
+    if(z.hp <= 0){
+      zombies.splice(i,1);
+      killCount++;
+
+      if(Math.random() < 0.5){
+        items.push({ x:z.x, y:z.y, type: Math.random()<0.5?"gun":"heal", time:Date.now() });
+      }
+
+      if(killCount == 99){
+        document.getElementById("message").innerText = "Chuc mung ban da duoi 99 nguoi";
+
+        setTimeout(function(){
+          boss = { x: canvas.width/2, y: 100, hp: 300 };
+          document.getElementById("message").innerText = "Tai Duc xuat hien";
+        },2000);
+      }
+    }
+  }
+
+  for(var i = items.length-1; i>=0; i--){
+    var it = items[i];
+    var d = Math.sqrt((player.x-it.x)*(player.x-it.x)+(player.y-it.y)*(player.y-it.y));
+
+    if(d < 20 && Date.now() - it.time > 300){
+      if(it.type=="gun") player.gun++;
+      if(it.type=="heal") player.hp = Math.min(100, player.hp+20);
+      items.splice(i,1);
+    }
+  }
+
+  if(boss && boss.hp <= 0){
+    document.getElementById("message").innerText = "e khong thuong a ha";
+    gameOver = true;
+    document.getElementById("restart").style.display = "block";
+  }
+
+  if(player.hp <= 0){
+    if(!boss && killCount < 99){
+      document.getElementById("message").innerText = "Co len 1 xiu nua thoi";
+    } else {
+      document.getElementById("message").innerText = "Em da dinh san la vo anh roi";
+    }
+    gameOver = true;
+    document.getElementById("restart").style.display = "block";
+  }
+
+  document.getElementById("hp").innerText = Math.floor(player.hp);
+  document.getElementById("gun").innerText = player.gun;
+  document.getElementById("kill").innerText = killCount;
+}
+
+function draw(){
+  ctx.fillStyle = "black";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  ctx.fillStyle = "green";
+  ctx.beginPath();
+  ctx.arc(player.x,player.y,10,0,Math.PI*2);
+  ctx.fill();
+
+  ctx.fillStyle = "yellow";
+  bullets.forEach(function(b){
+    ctx.beginPath();
+    ctx.arc(b.x,b.y,3,0,Math.PI*2);
+    ctx.fill();
+  });
+
+  ctx.fillStyle = "red";
+  zombies.forEach(function(z){
+    ctx.beginPath();
+    ctx.arc(z.x,z.y,12,0,Math.PI*2);
+    ctx.fill();
+  });
+
+  items.forEach(function(it){
+    ctx.beginPath();
+    ctx.arc(it.x,it.y,6,0,Math.PI*2);
+    ctx.fillStyle = it.type=="gun"?"blue":"green";
+    ctx.fill();
+  });
+
+  if(boss){
+    ctx.fillStyle = "purple";
+    ctx.beginPath();
+    ctx.arc(boss.x,boss.y,25,0,Math.PI*2);
+    ctx.fill();
+  }
+}
+
+function loop(){
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
+
+document.getElementById("restart").onclick = function(){
+  init();
+};
+</script>
+
+</body>
+</html>
+```
