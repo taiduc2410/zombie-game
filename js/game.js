@@ -75,7 +75,7 @@ function updateGame(canvas) {
       const b = game.bullets[j];
 
       if (Math.hypot(b.x - z.x, b.y - z.y) < 15) {
-        z.hp -= 10;
+        z.hp -= 20;
         game.bullets.splice(j, 1);
       }
     }
@@ -129,7 +129,7 @@ function updateGame(canvas) {
       const b = game.bullets[i];
 
       if (Math.hypot(b.x - game.boss.x, b.y - game.boss.y) < 25) {
-        game.boss.hp -= 10;
+        game.boss.hp -= 20;
         game.bullets.splice(i, 1);
       }
     }
