@@ -98,6 +98,8 @@ function updateGame(canvas) {
       // spawn boss
       if (game.killCount === 99 && !game.boss) {
         setTimeout(() => {
+          game.zombies = [];
+          
           game.boss = {
             x: canvas.width / 2,
             y: 100,
