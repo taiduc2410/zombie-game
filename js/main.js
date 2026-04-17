@@ -89,9 +89,9 @@ function draw() {
   }
 }
 
-loop();
-
 // restart
 document.getElementById("restart").onclick = function () {
   initGame(canvas);
 };
+
+loop();
